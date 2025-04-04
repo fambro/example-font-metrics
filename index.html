@@ -1,0 +1,160 @@
+<html>
+<head>
+  <title>Character metrics</title>
+  <style>
+    body {
+      font-family: Roboto, sans-serif;
+      font-size: 16px;
+    }
+    pre {
+      background-color: #f4f4f4;
+      padding: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Character metrics for font <span class="fontName">Roboto</span></h1>
+  <input type="text" id="fontFamily" value="Roboto" label="Font Family" />
+  <p>This script calculates metrics for font <span class="fontName">Roboto.</span></p>
+  <pre id="output"></pre>
+
+  <script>
+    /*
+     * Using the Canvas API to measure character widths and font metrics
+     * This script calculates the width ratios of characters in a given font
+     * and font size. It also calculates the cap height, x-height, ascent,
+     * and descent ratios relative to the font size.
+     * The results are displayed in a JSON format.
+     */
+    function calculateCharacterWidthRatios(fontFamily, fontSize) {
+      // Create an object to store the ratios
+      const charRatios = {};
+      
+      // Create a canvas element for measuring
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      
+      // Set the font
+      context.font = `${fontSize}px ${fontFamily}`;
+      
+      // Define character ranges to measure
+      const charRanges = [
+        // Basic Latin characters
+        [32, 126],       // Space to tilde
+        // Latin-1 Supplement
+        [160, 255],      // Non-breaking space to ÿ
+        // Common symbols and punctuation
+        [8192, 8303]     // Various spaces to ♀
+      ];
+      
+      // Measure each character
+      for (const [start, end] of charRanges) {
+        for (let charCode = start; charCode <= end; charCode++) {
+          const char = String.fromCharCode(charCode);
+          const metrics = context.measureText(char);
+          
+          // Calculate ratio (width divided by font size)
+          const ratio = metrics.width / fontSize;
+          
+          // Store the result
+          charRatios[char] = {
+            char: char,
+            charCode: charCode,
+            widthRatio: ratio,
+            // For reference
+            actualWidth: metrics.width
+          };
+        }
+      }
+      return charRatios;
+    }
+
+    function calculateFontMetrics(fontFamily, fontSize) {
+      // Create a canvas for measuring
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set the font
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      
+      // Get text metrics for our test characters
+      const capMetrics = ctx.measureText('H');
+      const xMetrics = ctx.measureText('x');
+      const descentMetrics = ctx.measureText('g');
+      const fullMetrics = ctx.measureText('Hg');
+      
+      // Canvas text metrics provide some measurements directly
+      const fontAscent = capMetrics.fontBoundingBoxAscent;
+      const fontDescent = descentMetrics.fontBoundingBoxDescent;
+      
+      // For x-height, we need to use the actual glyph metrics
+      // Some browsers support actualBoundingBoxAscent
+      const xHeight = xMetrics.actualBoundingBoxAscent || (fontSize * 0.5); // Fallback approximation
+      
+      // For cap height, we use capital letter height
+      const capHeight = capMetrics.actualBoundingBoxAscent || (fontSize * 0.7); // Fallback approximation
+      
+      // Calculate our ratios
+      const capHeightRatio = capHeight / fontSize;
+      const xHeightRatio = xHeight / fontSize;
+      const ascentRatio = fontAscent / fontSize;
+      const descentRatio = fontDescent / fontSize;
+      
+      return {
+        // Raw measurements in pixels
+        fontSize,
+        capHeight,
+        xHeight,
+        ascent: fontAscent,
+        descent: fontDescent,
+        
+        // Ratios relative to font size
+        capHeightRatio,
+        xHeightRatio,
+        ascentRatio,
+        descentRatio,
+        
+        // Total metrics
+        totalHeight: fontAscent + fontDescent,
+        totalHeightRatio: (fontAscent + fontDescent) / fontSize
+      };
+    }
+
+
+    // Update HTML elements with the calculated metrics
+    let fontFamily = 'Roboto';
+    document.getElementById('fontFamily').addEventListener('input',(event) => {
+      fontFamily = event.target.value;
+      update();
+    });
+    function update() {
+      const fontSize = 16; // in pixels
+      const charRatios = calculateCharacterWidthRatios(fontFamily, fontSize);
+      const fontMetrics = calculateFontMetrics(fontFamily, fontSize);
+      const output = {
+        metrics: { 
+          capHeightRatio: fontMetrics.capHeightRatio,
+          xHeightRatio: fontMetrics.xHeightRatio,
+          ascentRatio: fontMetrics.ascentRatio,
+          descentRatio: fontMetrics.descentRatio,
+        },
+        charWidthRatios: Object.fromEntries(
+          Object.entries(charRatios).map(([key, value]) => {
+            return [key, Number(value.widthRatio.toFixed(2))];
+          })
+        )
+      }
+          // Display the results
+      const outputElement = document.getElementById('output');
+      outputElement.textContent = JSON.stringify(output, null, 2) ;
+
+      const titleElements = document.querySelectorAll('.fontName');
+      titleElements.forEach((titleElement) => {
+        titleElement.textContent = fontFamily;
+      });
+      document.title = `Character Width Ratios - ${fontFamily}`;
+    }
+    update();
+  </script>
+</html>
